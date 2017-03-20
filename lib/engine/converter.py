@@ -114,7 +114,6 @@ class CustomersConverter(Converter):
                 email=row["EMAIL"],
                 ktp=row["KTP"],
                 point=row["POINT"],
-                used_point=row["PAKAI"],
                 point_expirity_date=row["P_EXPD"],
                 expired_point=0
             ).save()
