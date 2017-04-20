@@ -10,6 +10,7 @@ class DatabaseHelper:
         self.dbase = kwargs.get("dbase", None)
         self.collection = kwargs.get("collection", None)
         self.indexes = kwargs.get("indexes", [])
+        self.connection_string = "mongodb://frans:a123456789b@localhost/?authSource=admin"
 
     def get(self, condition=None, field=None):
         """ get data from database  based on given condition and field.
@@ -19,13 +20,12 @@ class DatabaseHelper:
         """
         assert self.dbase is not None, "dbase is not defined."
         assert self.collection is not None, "collection is not defined."
+        assert self.connection_string is not None, "connection_string is not defined."
 
         if condition is None:
             condition = {}
 
-        conn = pymongo.MongoClient(
-            "mongodb://frans:a123456789b@localhost/?authSource=admin"
-        )
+        conn = pymongo.MongoClient(self.connection_string)
         try:
             dbase = conn[self.dbase]
             return dbase[self.collection].find(condition, field)

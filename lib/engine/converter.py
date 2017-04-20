@@ -2,8 +2,12 @@
 import os
 import copy
 import logging
+import glob
+import hashlib
+import ntpath
 
 import profig
+import arrow
 import tablib
 import dbfread
 
@@ -14,6 +18,8 @@ from ..model.prices import Price
 from ..model.products import Product
 from ..model.customers import Customer
 from ..model.sales import Sale
+from ..model.machine import Machine
+from ..model.cashier import Cashier
 
 class Converter:
     """ Converter base class """
@@ -123,65 +129,80 @@ class SalesConverter(Converter):
     """ A class to convert from sales DBF to MongoDB
         This class is depends on `config.ini`
     """
+    class FieldParser(dbfread.FieldParser):
+        def parse(self, field, data):
+            try:
+                return dbfread.FieldParser.parse(self, field, data)
+            except ValueError:
+                return dbfread.InvalidValue(data)
+
     def __init__(self):
         super(SalesConverter, self).__init__()
 
-    def do_convert(self, index=None, row=None):
-        """ Execute convert in multithreading ways """
-        assert row is not None, "row is not defined."
-        assert index is not None, "index is not defined."
-
-        product = Product(barcode=row["KDBR"])
-        price = Price(value=row["HARGA"])
-        suplier = Suplier(code=row["SUPL"])
-        department = Department(code=row["DEPT"])
-        customer = None
-
-        if not customer:
-            customer = Customer(code=row["CUST"])
-
-        Sale(
-            code=index,
-            sales_date=row["TGBON"],
-            product=product,
-            qty=row["BANYAK"],
-            price=price,
-            department=department,
-            suplier=suplier,
-            discount_1=row["DISC1"],
-            discount_2=row["DISC2"],
-            discount_3=row["DIS"],
-            disocunt_4=row["DISRP"],
-            customer=customer
-        ).save()
-
-    def convert(self):
+    def convert(self, all_sales=False):
         """ Overiding `convert` function from parent.
-            The logic is quite simple, you need to get latest index
-            for last converted `sales`.
         """
-        logger = logging.getLogger(__name__)
 
-        # Get last converted index
-        helper = DatabaseHelper()
-        helper.dbase = "tokosumatra"
-        helper.collection = "status"
-        status = helper.get({"name": "sales"})[0]
-        last_index = 0
+        path = os.path.join(self.cfg["eod_path.penjualan"], "*.dbf")
+        if not all_sales:
+            path = os.path.join(self.cfg["eod_path.penjualan"], "CP??%s%s.dbf" % (
+                arrow.now().format("MM"),
+                arrow.now().format("DD")
+            ))
+        eod_files = glob.iglob(path)
+        for eod in eod_files:
+            file_name = ntpath.basename(eod)
 
-        if status is not None:
-            last_index = int(copy.copy(status["last_index"]))
+            machine = Machine()
+            machine.code = file_name[2:4]
+            machine.name = "Kasir %s" % machine.code
+            machine.save()
 
-        table = dbfread.DBF(self.cfg["dbf_path.penjualan"], load=True)
-        total_row = len(table.records) - 1
-        processed_index = 0
-        try:
-            for index, row in enumerate(table.records[last_index:]):
-                logger.debug("%s of %s", index + last_index, total_row)
-                if (index + last_index) >= last_index:
-                    self.do_convert((index + last_index), row)
-                processed_index = copy.copy((index + last_index))
-        finally:
-            status.update({"last_index": processed_index})
-            helper.insert_one(status, upsert=True, key={"name": "sales"})
-            del table
+            sales_id = None
+            cashier = None
+
+            table = dbfread.DBF(eod, parserclass=SalesConverter.FieldParser)
+            for row in table:
+                # Generate new ID if row["FLAG"] is NEW
+                if row["FLAG"] == "NEW":
+                    sales_id = "%s&%s&%s" % (row["CODE"], row["NORCP"], row["DDATE"])
+                    sales_id = sales_id.encode("utf8")
+                    sales_id = hashlib.sha256(sales_id).hexdigest()
+
+                    cashier = Cashier()
+                    cashier.code = row["DESC"][0:6].decode("utf8").strip()
+                    cashier.name = row["DESC"][7:].decode("utf8").strip()
+                    cashier.save()
+
+                    # Check if new sales_id has been inserted into Database or not
+                    helper = DatabaseHelper()
+                    helper.dbase = "tokosumatra"
+                    helper.collection = "sale"
+                    document = helper.get({"code": sales_id}, {"code": 1})
+
+                    can_insert = False
+                    if document.count() == 0:
+                        can_insert = True
+
+                if (row["FLAG"] == "PLU" or row["FLAG"] == "RTN" or row["FLAG"] == "VOD") \
+                    and can_insert:
+                    assert sales_id is not None, "sales_id is not defined."
+                    assert cashier is not None, "cashier is not defined."
+
+                    sale = Sale(
+                        code=sales_id,
+                        sales_date=row["DDATE"],
+                        product=Product(barcode=row["CODE"]),
+                        qty=row["QTY"],
+                        price=Price(value=row["PRICE"]),
+                        department=Department(code=row["DEPT"]),
+                        suplier=Suplier(code=row["SUPL"]),
+                        machine=machine,
+                        cashier=cashier
+                    )
+                    if row["FLAG"] == "RTN" or row["FLAG"] == "VOD":
+                        sale.qty = sale.qty * -1
+                    if "CUST" in row:
+                        sale.customer = Customer(code=row["CUST"])
+                    sale.save()
+
