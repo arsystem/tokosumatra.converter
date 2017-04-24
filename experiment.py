@@ -1,11 +1,11 @@
-import schedule
-import time
+import logging
+from lib.engine.converter import SalesConverter
 
-def job():
-    print("I am working")
+def run():
+    """ main program runs here """
+    converter = SalesConverter()
+    converter.convert()
 
-schedule.every(2).seconds.do(job)
-
-while True:
-    schedule.run_pending()
-    time.sleep(1)
+if __name__ == "__main__":
+    logging.basicConfig(level=logging.DEBUG)
+    run()

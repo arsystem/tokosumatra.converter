@@ -27,7 +27,7 @@ if __name__ == "__main__":
     schedule.every().hour.do(run, "departments")
     schedule.every().hour.do(run, "supliers")
     schedule.every().hour.do(run, "customers")
-    schedule.every().day.at("22:00").do(run, "sales")
+    schedule.every().day.at("22:30").do(run, "sales")
 
     while True:
         schedule.run_pending()

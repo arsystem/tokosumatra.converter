@@ -26,11 +26,9 @@ class Sale(Model):
         self.price = kwargs.get("price", None)
         self.department = kwargs.get("department", None)
         self.suplier = kwargs.get("suplier", None)
-        self.discount_1 = kwargs.get("discount_1", None)
-        self.discount_2 = kwargs.get("discount_2", None)
-        self.discount_3 = kwargs.get("discount_3", None)
-        self.discount_4 = kwargs.get("discount_4", None)
         self.customer = kwargs.get("customer", None)
+        self.cashier = kwargs.get("cashier", None)
+        self.machine = kwargs.get("machine", None)
 
     def to_dict(self):
         """ Convert to dictionary object """
@@ -54,6 +52,14 @@ class Sale(Model):
         if self.customer is not None:
             customer_code = self.customer.code
 
+        cashier_code = None
+        if self.cashier is not None:
+            cashier_code = self.cashier.code
+
+        machine_code = None
+        if self.machine is not None:
+            machine_code = self.machine.code
+
         return {
             "code": self.code,
             "sales_date": self.sales_date,
@@ -62,11 +68,9 @@ class Sale(Model):
             "price": price_value,
             "department": department_code,
             "suplier": suplier_code,
-            "discount_1": self.discount_1,
-            "discount_2": self.discount_2,
-            "discount_3": self.discount_3,
-            "discount_4": self.discount_4,
-            "customer": customer_code
+            "customer": customer_code,
+            "cashier": cashier_code,
+            "machine": machine_code
         }
 
     def save(self):
@@ -76,7 +80,7 @@ class Sale(Model):
             helper = DatabaseHelper()
             helper.dbase = "tokosumatra"
             helper.collection = "sale"
-            helper.indexes = [("code", "unique", )]
+            helper.indexes = [("code", "")]
             helper.insert_one(self.to_dict())
             logger.debug("Inserted or updated one sale")
         except DuplicateKeyError:
