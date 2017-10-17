@@ -10,7 +10,7 @@ class DatabaseHelper:
         self.dbase = kwargs.get("dbase", None)
         self.collection = kwargs.get("collection", None)
         self.indexes = kwargs.get("indexes", [])
-        self.connection_string = "mongodb://frans:a123456789b@localhost/?authSource=admin"
+        self.connection_string = "mongodb://10.42.232.81"
 
     def get(self, condition=None, field=None):
         """ get data from database  based on given condition and field.
@@ -39,9 +39,7 @@ class DatabaseHelper:
         assert document is not None, "document is not defined."
         assert upsert is not None, "upsert is not defined."
 
-        conn = pymongo.MongoClient(
-            "mongodb://frans:a123456789b@localhost/?authSource=admin"
-        )
+        conn = pymongo.MongoClient(self.connection_string)
         dbase = conn[self.dbase]
         try:
             for field, index_type in self.indexes:

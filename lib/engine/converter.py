@@ -143,9 +143,9 @@ class SalesConverter(Converter):
         """ Overiding `convert` function from parent.
         """
 
-        path = os.path.join(self.cfg["eod_path.penjualan"], "*.dbf")
+        path = os.path.join(self.cfg["eod_path.penjualan"], "*.DBF")
         if not all_sales:
-            path = os.path.join(self.cfg["eod_path.penjualan"], "CP??%s%s.dbf" % (
+            path = os.path.join(self.cfg["eod_path.penjualan"], "CP??%s%s.DBF" % (
                 arrow.now().format("MM"),
                 arrow.now().format("DD")
             ))
